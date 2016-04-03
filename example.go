@@ -1,6 +1,6 @@
 package main
 
-import r "../requests/requests"
+import r "github.com/solos/requests"
 import "fmt"
 
 func main() {
