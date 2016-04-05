@@ -18,6 +18,12 @@ type Response struct {
 	Content string
 }
 
+func (r *Request) initArgs() {
+    if (r.Args == nil){
+        r.Args = M{};
+    }
+}
+
 func (r *Request) setTimeout(timeout int) error {
 	r.Args["timeout"] = int(timeout)
 	return nil
@@ -126,6 +132,8 @@ func (r *Request) Options(uri string, options ...func(*Request) error) (*Respons
 }
 
 func (r *Request) MakeRequest(method string, uri string, options ...func(*Request) error) (*Response, error) {
+
+    r.initArgs();
 
 	payload := "";
 	if data, ok := r.Args["data"].(map[string]string); ok {
