@@ -6,12 +6,13 @@ import "strings"
 import "net/url"
 import "net/http"
 import "io/ioutil"
+import "encoding/json"
 
 type M map[string]interface{}
 
 type Request struct {
-	Url     string
-	Args    M
+	Url  string
+	Args M
 }
 
 type Response struct {
@@ -19,9 +20,9 @@ type Response struct {
 }
 
 func (r *Request) initArgs() {
-    if (r.Args == nil){
-        r.Args = M{};
-    }
+	if r.Args == nil {
+		r.Args = M{}
+	}
 }
 
 func (r *Request) setTimeout(timeout int) error {
@@ -79,6 +80,17 @@ func Params(params map[string]string) func(*Request) error {
 	}
 }
 
+func (r *Request) setForm(form map[string]string) error {
+	r.Args["form"] = form
+	return nil
+}
+
+func Form(form map[string]string) func(*Request) error {
+	return func(r *Request) error {
+		return r.setForm(form)
+	}
+}
+
 func (r *Request) setData(data map[string]string) error {
 	r.Args["data"] = data
 	return nil
@@ -112,7 +124,6 @@ func Json(json map[string]string) func(*Request) error {
 	}
 }
 
-
 func (r *Request) setOptions(options M) error {
 	for k, v := range options {
 		r.Args[k] = v
@@ -127,16 +138,23 @@ func Options(options M) func(*Request) error {
 }
 
 func (r *Request) Options(uri string, options ...func(*Request) error) (*Response, error) {
-    return r.MakeRequest("Options", uri);
+	return r.MakeRequest("Options", uri)
 
 }
 
 func (r *Request) MakeRequest(method string, uri string, options ...func(*Request) error) (*Response, error) {
 
-    r.initArgs();
+	r.initArgs()
 
-	payload := "";
-	if data, ok := r.Args["data"].(map[string]string); ok {
+	for _, option := range options {
+		err := option(r)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	payload := ""
+	if data, ok := r.Args["form"].(map[string]string); ok {
 		var req http.Request
 		req.ParseForm()
 		for key, val := range data {
@@ -145,14 +163,14 @@ func (r *Request) MakeRequest(method string, uri string, options ...func(*Reques
 		payload = strings.TrimSpace(req.Form.Encode())
 	}
 
-	req, err := http.NewRequest(method, uri, strings.NewReader(payload))
-
-	for _, option := range options {
-		err := option(r)
-		if (err != nil) {
-			panic(err)
+	if data, ok := r.Args["data"].(map[string]string); ok {
+		body, err := json.Marshal(data)
+		if err == nil {
+			payload = string(body)
 		}
 	}
+
+	req, err := http.NewRequest(method, uri, strings.NewReader(payload))
 
 	if params, ok := r.Args["params"].(map[string]string); ok {
 		q := req.URL.Query()
@@ -177,9 +195,9 @@ func (r *Request) MakeRequest(method string, uri string, options ...func(*Reques
 
 	transport := &http.Transport{}
 	if proxy, ok := r.Args["proxy"].(string); ok {
-		if (proxy != "") {
+		if proxy != "" {
 			proxyUrl, err := url.Parse(proxy)
-			if (err == nil) {
+			if err == nil {
 				transport.Proxy = http.ProxyURL(proxyUrl)
 			}
 		}
@@ -197,7 +215,7 @@ func (r *Request) MakeRequest(method string, uri string, options ...func(*Reques
 	client.Timeout = timeout
 
 	resp, err := client.Do(req)
-	if (err != nil){
+	if err != nil {
 		panic(err)
 	}
 	defer resp.Body.Close()
