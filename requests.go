@@ -171,6 +171,7 @@ func (r *Request) MakeRequest(method string, uri string, options ...func(*Reques
 	}
 
 	req, err := http.NewRequest(method, uri, strings.NewReader(payload))
+	req.Close = true
 
 	if params, ok := r.Args["params"].(map[string]string); ok {
 		q := req.URL.Query()
